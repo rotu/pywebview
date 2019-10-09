@@ -83,23 +83,28 @@ def parse_api_js(api_instance, platform):
     return js_code
 
 
-def js_bridge_call(window, func_name, param):
+def js_bridge_call(window, func_name, args, rpc_id):
     def _call():
-        result = json.dumps(func(func_params)).replace('\\', '\\\\').replace('\'', '\\\'')
-        code = 'window.pywebview._returnValues["{0}"] = {{ isSet: true, value: \'{1}\'}}'.format(func_name, result)
-        window.evaluate_js(code)
+        try:
+            result = json.dumps(func(*args))
+            code = 'window.pywebview._rpcSettle({0},true,{1})'.format(json.dumps(rpc_id), result)
+            window.evaluate_js(code)
+        except Exception as e:
+            logger.exception('Error occurred while evaluating function {0}'.format(func_name))
+            code = 'window.pywebview._rpcSettle({0},false,{1})'.format(json.dumps(rpc_id), str(e))
+            window.evaluate_js(code)
 
     func = getattr(window.js_api, func_name, None)
 
     if func is not None:
-        try:
-            func_params = param if not param else json.loads(param)
-            t = Thread(target=_call)
-            t.start()
-        except Exception:
-            logger.exception('Error occurred while evaluating function {0}'.format(func_name))
+        t = Thread(target=_call)
+        t.start()
     else:
-        logger.error('Function {}() does not exist'.format(func_name))
+        msg = 'Function {}() does not exist'.format(func_name)
+        logger.error(msg)
+        code = 'window.pywebview._rpcSettle({0},false,{1})'.format(
+            json.dumps(rpc_id), json.dumps(msg))
+        window.evaluate_js(code)
 
 
 def escape_string(string):

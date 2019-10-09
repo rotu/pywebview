@@ -89,10 +89,11 @@ class BrowserView:
             return self
 
         def userContentController_didReceiveScriptMessage_(self, controller, message):
-            func_name, param = json.loads(message.body())
-            if param is WebKit.WebUndefined.undefined():
-                param = None
-            js_bridge_call(self.window, func_name, param)
+            rpc_request = json.loads(message.body())
+            name = rpc_request['name']
+            rpc_id = rpc_request['rpc_id']
+            args = rpc_request['args']
+            js_bridge_call(self.window, name, args, rpc_id)
 
     class BrowserDelegate(AppKit.NSObject):
         # Display a JavaScript alert panel containing the specified message
