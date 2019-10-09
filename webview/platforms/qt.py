@@ -67,11 +67,8 @@ class BrowserView(QMainWindow):
             super(BrowserView.JSBridge, self).__init__()
 
         @QtCore.pyqtSlot(str, qtype, result=str)
-        def call(self, func_name, param):
-            func_name = BrowserView._convert_string(func_name)
-            param = BrowserView._convert_string(param)
-
-            return js_bridge_call(self.window, func_name, param)
+        def call(self, rpc_request_str):
+            return js_bridge_call(self.window,  BrowserView._convert_string(rpc_request_str))
 
     class WebView(QWebView):
         def __init__(self, parent=None):

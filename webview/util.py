@@ -83,16 +83,28 @@ def parse_api_js(api_instance, platform):
     return js_code
 
 
-def js_bridge_call(window, func_name, args, rpc_id):
+def js_bridge_call(window,  rpc_request_str):
+    rpc_request = json.loads(rpc_request_str)
+    rpc_id = rpc_request['rpc_id']
+    args = rpc_request['args']
+    func_name = rpc_request['name']
+
     def _call():
         try:
-            result = json.dumps(func(*args))
-            code = 'window.pywebview._rpcSettle({0},true,{1})'.format(json.dumps(rpc_id), result)
-            window.evaluate_js(code)
+            value = func(*args)
+            rpc_response_str = json.dumps({
+                'rpc_id': rpc_id,
+                'value': value,
+            })
         except Exception as e:
-            logger.exception('Error occurred while evaluating function {0}'.format(func_name))
-            code = 'window.pywebview._rpcSettle({0},false,{1})'.format(json.dumps(rpc_id), str(e))
-            window.evaluate_js(code)
+            error = 'Error occurred while evaluating function {0}: {1}'.format(func_name,str(e))
+            rpc_response_str = json.dumps({
+                'rpc_id': rpc_id,
+                'error': error,
+            })
+
+        code = 'window.pywebview._rpcSettle({0})'.format(rpc_response_str)
+        window.evaluate_js(code)
 
     func = getattr(window.js_api, func_name, None)
 
@@ -100,10 +112,14 @@ def js_bridge_call(window, func_name, args, rpc_id):
         t = Thread(target=_call)
         t.start()
     else:
-        msg = 'Function {}() does not exist'.format(func_name)
-        logger.error(msg)
-        code = 'window.pywebview._rpcSettle({0},false,{1})'.format(
-            json.dumps(rpc_id), json.dumps(msg))
+        reason = 'Function {}() does not exist'.format(func_name)
+
+        logger.error(reason)
+        rpc_response_str = json.dumps({
+            'rpc_id': rpc_id,
+            'error': reason,
+        })
+        code = 'window.pywebview._rpcSettle({0})'.format(rpc_response_str)
         window.evaluate_js(code)
 
 
